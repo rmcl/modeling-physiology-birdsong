@@ -88,3 +88,20 @@ def load_single_bird_syllable_csv(file_path):
             results.append(data)
 
     return results
+
+def split_dataset_by_surgery_date(results, surgery_date):
+    """Split the dataset into two groups: pre-surgery and post-surgery based on the date of surgery"""
+    results_pre_surgery = []
+    results_post_surgery = []
+
+    for result in results:
+        recording_date = result['recording_time']
+
+        if recording_date < surgery_date:
+            results_pre_surgery.append(result)
+        elif recording_date == surgery_date:
+            raise ValueError("Recording date is the same as the surgery date")
+        else:
+            results_post_surgery.append(result)
+
+    return results_pre_surgery, results_post_surgery
