@@ -18,7 +18,7 @@ def test_build_transition_matrix_order_1():
     result = build_transition_matrix(dataset, order)
 
     assert list(result['p_starting_symbol']) == [1, 1, 1, 0, 0]
-    assert result['alphabet'] == {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4}
+    assert result['alphabet'] == ['A','B','C','D','E']
     assert np.array_equal(result['occurrence_mats'][0], np.array([1, 2, 3, 2, 1]))
     assert np.array_equal(result['occurrence_mats'][1], np.array([
         [0, 1, 0, 0, 0],
@@ -35,7 +35,7 @@ def test_build_transition_matrix_order_2():
     result = build_transition_matrix(dataset, order)
 
     assert list(result['p_starting_symbol']) == [1, 1, 1, 0, 0]
-    assert result['alphabet'] == {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4}
+    assert result['alphabet'] == ['A','B','C','D','E']
 
     expected_occurrence_mats_0 = np.array([1, 2, 3, 2, 1])
     assert np.array_equal(result['occurrence_mats'][0], expected_occurrence_mats_0)

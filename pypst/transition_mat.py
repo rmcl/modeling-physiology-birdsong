@@ -1,13 +1,17 @@
 from typing import List, Dict
 import numpy as np
 
-def build_alphabet_from_dataset(dataset : List[List[str]]) -> Dict[str, int]:
+def build_alphabet_from_dataset(dataset : List[List[str]]) -> List[str]:
     """Iterate through the dataset and build an alphabet of unique items."""
     alphabet = set()
+    ordered_alphabet = []
     for row in dataset:
         for item in row:
-            alphabet.add(item)
+            if item not in alphabet:
+                ordered_alphabet.append(item)
+                alphabet.add(item)
 
+    """
     # todo - remove this int conversion if we go to a string based alphabet
 
     def sort_numeric_if_possible(x):
@@ -21,21 +25,22 @@ def build_alphabet_from_dataset(dataset : List[List[str]]) -> Dict[str, int]:
         item: idx
         for idx, item in enumerate(sorted_alphabet)
     }
+    """
 
-    return alphabet_map
+    return ordered_alphabet
 
 
 def build_transition_matrix(
     dataset : List[List[str]],
     order : int,
-    alphabet : Dict[str, int] = None
+    alphabet : List[str] = None
 ):
     """Build a set of transition matrices for a given dataset and order.
 
     Inputs:
         dataset (List[List[str]]) - a list of sequences of items
         order (int) - the order of the PST to build
-        alphabet (Dict[str, int]) - an optional mapping of items to their index in the alphabet
+        alphabet (List[str]) - an optional list of items. The position in the list is the index in the alphabet
             if not provided, the alphabet will be built from the dataset
 
     Outputs:
@@ -60,7 +65,7 @@ def build_transition_matrix(
         for cur_item_index in range(len(cur_sequence)):
 
             cur_item = cur_sequence[cur_item_index]
-            cur_item_alphabet_index = alphabet[cur_item]
+            cur_item_alphabet_index = alphabet.index(cur_item)
 
             # If this is the first item in the sequence, increment the starting symbol count
             if cur_item_index == 0:
@@ -81,7 +86,7 @@ def build_transition_matrix(
                 n[cur_order] += 1
 
                 next_order_item = cur_sequence[cur_item_index + cur_order]
-                next_order_syllables_alphabet_index = alphabet[next_order_item]
+                next_order_syllables_alphabet_index = alphabet.index(next_order_item)
 
                 co_occuring_indexes.append(next_order_syllables_alphabet_index)
                 occurrence_mats[cur_order][*co_occuring_indexes] += 1

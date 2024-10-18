@@ -32,9 +32,11 @@ def pst_learn(
 
     # Initialize sbar: symbols whose probability >= p_min
     sbar = [
-        a for a in alphabet
-        if np.single(f_mat[0][alphabet[a]] / N[0]) >= p_min
+        value for alphabet_index, value in enumerate(alphabet)
+        if np.single(f_mat[0][alphabet_index] / N[0]) >= p_min
     ]
+
+    print('SBAR', sbar)
 
     # Initialize tree with empty node
     tbar = [{
@@ -42,26 +44,49 @@ def pst_learn(
         'parent': [(0, 0)],
         'label': ['epsilon'],
         'internal': [0]
-    }] + [
-        {
+    }]
+
+    for _ in range(L):
+        tbar.append({
             'string': [],
             'parent': [],
             'internal': [],
             'label': []
-        }
-        for _ in range(L)
-    ]
+        })
 
     # Learning process
     while sbar:
-        s_char = sbar.pop(0)
-        s = [alphabet[c] for c in s_char]
 
-        curr_depth = len(s) + 1
+        s_char = sbar.pop(0)
+        s_index = alphabet.index(s_char)
+
+        # IS THIS GOOD?
+        if s_index == 0:
+            continue
+
+        # Get the
+        s=list(range(0, s_index))
+        print(s_char, s_index, s)
+
+        curr_depth = len(s)
+
+        # TODO: SHOULD THIS BE HERE?
+        if curr_depth >= len(f_mat):
+            continue
 
         # Calculate p(sigma|s) and other probabilities
-        f_vec = retrieve_f_sigma(f_mat, s)
-        f_suf = retrieve_f_sigma(f_mat, s[1:]) if len(s) > 1 else retrieve_f_sigma(f_mat, [])
+        print('F_MAT', len(f_mat), f_mat[curr_depth].shape)
+
+        # Retrieve a row from f_mat
+        f_vec = f_mat[curr_depth][*s]
+
+        print('F_VEC', f_vec.shape)
+
+        #f_suf = retrieve_f_sigma(f_mat, s[1:]) if len(s) > 1 else retrieve_f_sigma(f_mat, [])
+
+        # Retrieve a row from f_mat starting from the second element
+        f_suf = f_mat[curr_depth][*s[1:]]
+
 
         p_sigma_s = f_vec / (np.sum(f_vec) + np.finfo(float).eps)
         p_sigma_suf = f_suf / (np.sum(f_suf) + np.finfo(float).eps)
@@ -84,7 +109,6 @@ def pst_learn(
             add_nodes = [i for i, p in enumerate(p_sigmaprime_s) if p >= p_min]
 
             for j in add_nodes:
-                print(j)
                 sbar.append(alphabet[j] + s_char)
 
     # Post-processing for the tree
@@ -93,27 +117,6 @@ def pst_learn(
 
     return tbar
 
-def retrieve_f_sigma(f_mat, s):
-    """
-    Retrieve frequency vector for a given sequence.
-
-    Args:
-        f_mat (list): Frequency matrices.
-        s (list): Sequence of indices.
-
-    Returns:
-        np.ndarray: Frequency vector.
-    """
-    length = len(s) + 1
-    if length == 1:
-        return f_mat[0]
-    elif length == 2:
-        return f_mat[1][s[0], :]
-    elif length == 3:
-        return np.squeeze(f_mat[2][s[0], s[1], :])
-    # Add more cases if needed
-    else:
-        return np.zeros_like(f_mat[0])
 
 def retrieve_f_prime(f_mat, s):
     """
