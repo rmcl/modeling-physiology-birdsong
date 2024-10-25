@@ -83,7 +83,9 @@ def pst_learn(
 
         if total > 0:
             tbar[cur_depth].setdefault('string', []).append(cur_sequence_indexes)
+
             node, depth = find_parent(cur_sequence_indexes, tbar)
+
             tbar[cur_depth].setdefault('parent', []).append((node, depth))
             tbar[cur_depth].setdefault('label', []).append(cur_sequence)
             tbar[cur_depth].setdefault('internal', []).append(0)
@@ -91,8 +93,6 @@ def pst_learn(
 
 
         if len(cur_sequence_indexes) < L:
-            # this was already set
-            #f_vec = f_mat[len(cur_sequence_indexes)][tuple(cur_sequence_indexes)]
             f_vec = retrieve_f_prime(f_mat, cur_sequence_indexes)
             p_sigmaprime_s = f_vec / (N[cur_depth] + np.finfo(float).eps)
             add_nodes = np.where(p_sigmaprime_s >= p_min)[0]
@@ -123,44 +123,57 @@ def find_parent(sequence, tbar):
     Returns:
         tuple: Node and depth of the parent.
     """
-    node, depth = 0, 0
-    seq_length = len(sequence)
-    if seq_length > 1:
-        for i in range(2, seq_length+1):
-            hits = [
-                tbar[i]['string'][j] == sequence[-i:]
-                for j in range(len(tbar[i].get('string', [])))
-            ]
+    if len(sequence) == 1:
+        return 0, 0  # Root node is the parent of single element sequences
 
-            if sum(hits) == 1:
-                node = np.argmax(hits)
-                depth = i
+    parent_sequence = sequence[1:]  # Suffix of the sequence (drop first element)
+    parent_depth = len(parent_sequence)
 
-    return node, depth
+    # Search for the parent in the parent depth level
+    for idx, candidate in enumerate(tbar[parent_depth].get('string', [])):
+        if candidate == parent_sequence:
+            return idx, parent_depth
 
+    # No valid parent found
+    return 0, 0
 
-def fix_path(tbar):
+def fix_path(tbar, max_iterations=1000):
     """
     Fix the paths in the tree by ensuring every node has a clear parent path.
     """
-    changes = 1
-    while changes:
-        changes = 0
+    iteration = 0
+    changes = True
+    while changes and iteration < max_iterations:
+        changes = False
+        iteration += 1
         for i in range(2, len(tbar)):
             for j, curr_string in enumerate(tbar[i].get('string', [])):
                 node, depth = find_parent(curr_string, tbar)
-                parent_depth = tbar[i]['parent'][j][1]
+                parent_depth = tbar[i].get('parent', [(0, 0)])[j][1]
+
+                # Update parent if new depth is greater
                 if depth > parent_depth:
                     tbar[i]['parent'][j] = (node, depth)
                     parent_depth = depth
+
+                # Move to the correct parent if it's not already the direct parent
                 if parent_depth < i - 1:
-                    tbar[i-1].setdefault('string', []).append(curr_string[1:])
-                    node, depth = find_parent(curr_string[1:], tbar)
+                    suffix_string = curr_string[1:]
+                    node, depth = find_parent(suffix_string, tbar)
+
+                    # Add the node to the parent level
+                    tbar[i-1].setdefault('string', []).append(suffix_string)
                     tbar[i-1].setdefault('parent', []).append((node, depth))
                     tbar[i-1].setdefault('label', []).append(tbar[i]['label'][j][1:])
                     tbar[i-1].setdefault('internal', []).append(1)
-                    changes += 1
-                    tbar[i]['parent'][j] = (len(tbar[i-1]['string']) - 1, i-1)
+                    changes = True
+
+                    # Update child parent reference to new position
+                    tbar[i]['parent'][j] = (len(tbar[i-1]['string']) - 1, i - 1)
+
+    if iteration == max_iterations:
+        print("Warning: fix_path reached max iterations and may not be fully resolved.")
+
     return tbar
 
 
