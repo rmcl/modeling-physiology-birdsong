@@ -51,3 +51,31 @@ def test_build_transition_matrix_order_2():
     assert order2_mat[0, 1, 2] == 1
     assert order2_mat[1, 2, 3] == 1
     assert order2_mat[2, 3, 4] == 1
+
+def test_build_trans_mat_2():
+    dataset = [
+        [ch for ch in e]
+        for e in ['AAABCABC', 'CABCAB', 'BCABCA', 'CBACBA', 'ABCABC']
+    ]
+    order = 2
+
+    result = build_transition_matrix(dataset, order)
+
+    assert np.array_equal(result['occurrence_mats'][0], np.array([12, 10, 10]))
+    print(result['occurrence_mats'][2])
+    assert np.array_equal(result['occurrence_mats'][1], np.array([
+        [2, 7, 1],
+        [2, 0, 7],
+        [6, 2, 0]
+    ]))
+    assert np.array_equal(result['occurrence_mats'][2], np.array([
+        [[1, 1, 0],
+         [0, 0, 6],
+         [0, 1, 0]],
+        [[0, 0, 1],
+         [0, 0, 0],
+         [5, 0, 0]],
+        [[0, 5, 0],
+         [2, 0, 0],
+         [0, 0, 0]]
+    ]))

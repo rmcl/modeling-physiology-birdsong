@@ -1,6 +1,10 @@
 from typing import List, Dict
 import numpy as np
 
+def convert_sequence_to_indexes(alphabet, sequence):
+    """Convert a sequence of characters to their corresponding indexes in the alphabet."""
+    return [alphabet.index(char) for char in sequence]
+
 def build_alphabet_from_dataset(dataset : List[List[str]]) -> List[str]:
     """Iterate through the dataset and build an alphabet of unique items."""
     alphabet = set()
