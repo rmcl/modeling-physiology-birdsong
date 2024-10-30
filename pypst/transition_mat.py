@@ -93,7 +93,7 @@ def build_transition_matrix(
                 next_order_syllables_alphabet_index = alphabet.index(next_order_item)
 
                 co_occuring_indexes.append(next_order_syllables_alphabet_index)
-                occurrence_mats[cur_order][*co_occuring_indexes] += 1
+                occurrence_mats[cur_order][tuple(co_occuring_indexes)] += 1
 
     return {
         "occurrence_mats": occurrence_mats,

@@ -1,4 +1,5 @@
 import numpy as np
+from collections import deque
 
 def pst_learn(
     f_mat,
@@ -37,13 +38,25 @@ def pst_learn(
     ]
 
     # Initialize tree with empty node
-    tbar = [{} for _ in range(L+1)]
-    tbar[0] = {
+    tbar = [
+        {
+            'string': [],
+            'parent': [],
+            'label': [],
+            'internal': [],
+            'g_sigma_s': [],
+            'p': [],
+            'f': []
+        }
+        for _ in range(L + 1)
+    ]
+
+    tbar[0].update({
         'string': [[]],
         'parent': [(0, 0)],
         'label': ['epsilon'],
-        'internal': [0]
-    }
+        'internal': [0],
+    })
 
     # Learning process
     while sequence_queue_sbar:
@@ -57,24 +70,18 @@ def pst_learn(
         if len(cur_sequence_indexes) == 0:
             continue
 
-        # Set the current depth in the tree
         cur_depth = len(cur_sequence_indexes)
 
-        # Retrieve a row from f_mat
-        #f_vec = f_mat[cur_depth][*cur_sequence_indexes]
-        f_vec = get_next_symbol_freqs_for_sequence(f_mat, cur_sequence_indexes)
+        f_vec = retrieve_f_sigma(f_mat, cur_sequence_indexes)
 
-        # Calculate p(sigma|s) and other probabilities
-        # Retrieve a row from f_mat starting from the second element
         if len(cur_sequence_indexes) > 1:
-            f_suf = get_next_symbol_freqs_for_sequence(f_mat, cur_sequence_indexes[1:])
-            #f_suf = f_mat[cur_depth][tuple(cur_sequence_indexes[1:])]
+            f_suf = retrieve_f_sigma(f_mat, cur_sequence_indexes[1:])
         else:
-            f_suf = get_next_symbol_freqs_for_sequence(f_mat, [])
-            #f_suf = f_mat[0] << should be equivalent
+            f_suf = retrieve_f_sigma(f_mat, [])
 
         p_sigma_s = f_vec / (np.sum(f_vec) + np.finfo(float).eps)
         p_sigma_suf = f_suf / (np.sum(f_suf) + np.finfo(float).eps)
+
         ratio = (p_sigma_s + np.finfo(float).eps) / (p_sigma_suf + np.finfo(float).eps)
         psize = p_sigma_s >= (1 + alpha) * g_min
 
@@ -82,146 +89,92 @@ def pst_learn(
         total = np.sum(ratio_test & psize)
 
         if total > 0:
-            tbar[cur_depth].setdefault('string', []).append(cur_sequence_indexes)
-
-            node, depth = find_parent(cur_sequence_indexes, tbar)
-
-            tbar[cur_depth].setdefault('parent', []).append((node, depth))
-            tbar[cur_depth].setdefault('label', []).append(cur_sequence)
-            tbar[cur_depth].setdefault('internal', []).append(0)
-
-
+            if cur_depth < len(tbar):
+                tbar[cur_depth]['string'].append(cur_sequence_indexes)
+                node, depth = find_parent(cur_sequence_indexes, tbar)
+                tbar[cur_depth]['parent'].append((node, depth))
+                tbar[cur_depth]['label'].append(cur_sequence)
+                tbar[cur_depth]['internal'].append(0)
 
         if len(cur_sequence_indexes) < L:
-            f_vec = retrieve_f_prime(f_mat, cur_sequence_indexes)
-            p_sigmaprime_s = f_vec / (N[cur_depth] + np.finfo(float).eps)
+            f_vec_prime = retrieve_f_prime(f_mat, cur_sequence_indexes)
+            p_sigmaprime_s = f_vec_prime / (N[cur_depth] + np.finfo(float).eps)
             add_nodes = np.where(p_sigmaprime_s >= p_min)[0]
 
             for j in add_nodes:
-                new_seq = [alphabet[j]] + cur_sequence
-                sequence_queue_sbar.append(new_seq)
+                # Prepend the new symbol to the current sequence
+                new_sequence = [alphabet[j]] + cur_sequence
+                sequence_queue_sbar.append(new_sequence)
 
-
-
-
-    # Post-processing for the tree
+    # Post-process the tree
     tbar = fix_path(tbar)
     tbar = find_gsigma(tbar, f_mat, g_min, N, p_smoothing)
 
     return tbar
 
 
-
 def find_parent(sequence, tbar):
-    """
-    Find the parent node of the given sequence in the tree.
-
-    Args:
-        sequence (list): The current sequence.
-        tbar (list): Tree structure.
-
-    Returns:
-        tuple: Node and depth of the parent.
-    """
     if len(sequence) == 1:
-        return 0, 0  # Root node is the parent of single element sequences
+        return 0, 0
 
-    parent_sequence = sequence[1:]  # Suffix of the sequence (drop first element)
-    parent_depth = len(parent_sequence)
+    suffix = sequence[1:]
+    parent_depth = len(suffix)
 
-    # Search for the parent in the parent depth level
-    for idx, candidate in enumerate(tbar[parent_depth].get('string', [])):
-        if candidate == parent_sequence:
+    for idx, candidate in enumerate(tbar[parent_depth]['string']):
+        if candidate == suffix:
             return idx, parent_depth
 
-    # No valid parent found
     return 0, 0
 
 def fix_path(tbar, max_iterations=1000):
-    """
-    Fix the paths in the tree by ensuring every node has a clear parent path.
-    """
     iteration = 0
-    changes = True
-    while changes and iteration < max_iterations:
+    while iteration < max_iterations:
         changes = False
         iteration += 1
         for i in range(2, len(tbar)):
             for j, curr_string in enumerate(tbar[i].get('string', [])):
+                print('CUR STRING:', curr_string)
                 node, depth = find_parent(curr_string, tbar)
-                parent_depth = tbar[i].get('parent', [(0, 0)])[j][1]
 
-                # Update parent if new depth is greater
+                print('PARENT DEP', tbar[i]['parent'])
+                try:
+                    parent_depth = tbar[i]['parent'][j][1]
+                except IndexError:
+                    continue
+
                 if depth > parent_depth:
                     tbar[i]['parent'][j] = (node, depth)
                     parent_depth = depth
 
-                # Move to the correct parent if it's not already the direct parent
                 if parent_depth < i - 1:
-                    suffix_string = curr_string[1:]
-                    node, depth = find_parent(suffix_string, tbar)
-
-                    # Add the node to the parent level
-                    tbar[i-1].setdefault('string', []).append(suffix_string)
-                    tbar[i-1].setdefault('parent', []).append((node, depth))
-                    tbar[i-1].setdefault('label', []).append(tbar[i]['label'][j][1:])
-                    tbar[i-1].setdefault('internal', []).append(1)
+                    suffix = curr_string[1:]
+                    node, depth = find_parent(suffix, tbar)
+                    tbar[i - 1]['string'].append(suffix)
+                    tbar[i - 1]['parent'].append((node, depth))
+                    tbar[i - 1]['label'].append(tbar[i]['label'][j][1:])
+                    tbar[i - 1]['internal'].append(1)
+                    tbar[i]['parent'][j] = (len(tbar[i - 1]['string']) - 1, i - 1)
                     changes = True
-
-                    # Update child parent reference to new position
-                    tbar[i]['parent'][j] = (len(tbar[i-1]['string']) - 1, i - 1)
-
-    if iteration == max_iterations:
-        print("Warning: fix_path reached max iterations and may not be fully resolved.")
-
+        if not changes:
+            break
     return tbar
 
 
-def get_next_symbol_freqs_for_sequence(f_mat, s):
-    """Retrieve the frequency vector for given sequence s.
-
-    Given a sequence, s, this returns a vector of length alphabet size
-    that indicates the frequency of next symbol occurrences after the
-    sequence s.
-
-    if s is empty, return the ZERO ORDER frequency vector.
-
-    aka retrieve_f_sigma
-
-    """
-    idx = tuple(s)
-    if len(s) == 0:
-        return f_mat[0]
-
-    return f_mat[len(s)][idx]
-
 def retrieve_f_prime(f_mat, s):
-    """
-
-    Given a sequence, s, this returns a vector of length alphabet size
-    that indicates the frequency of next symbol occurrences after the
-    sequence s.
-
-    if s is empty, return the FIRST ORDER frequency vector.
-
-    aka retrieve_f_prime
-
-    """
-    idx = tuple(s)
     if len(s) == 0:
         return f_mat[1]
 
-    return f_mat[len(s)][idx]
+    return np.squeeze(f_mat[len(s)][:, tuple(s)])
 
-
+def retrieve_f_sigma(f_mat, s):
+    if len(s) == 0:
+        return f_mat[0]
+    return f_mat[len(s)][tuple(s)]
 
 def find_gsigma(tbar, f_mat, g_min, N, p_smoothing):
-    """
-    Compute the smoothed transition probabilities for each node in the tree.
-    """
     for i in range(len(tbar)):
         for j in range(len(tbar[i].get('string', []))):
-            f_vec = get_next_symbol_freqs_for_sequence(f_mat, tbar[i]['string'][j])
+            f_vec = retrieve_f_sigma(f_mat, tbar[i]['string'][j])
             p_sigma_s = f_vec / (np.sum(f_vec) + np.finfo(float).eps)
             if tbar[i]['string'][j]:
                 f = retrieve_f(f_mat, tbar[i]['string'][j])
@@ -230,9 +183,9 @@ def find_gsigma(tbar, f_mat, g_min, N, p_smoothing):
                 f, p_s = 0, 1
             sigma_norm = len(p_sigma_s)
             g_sigma_s = p_sigma_s * (1 - sigma_norm * g_min) + g_min
-            tbar[i].setdefault('g_sigma_s', []).append(g_sigma_s if p_smoothing else p_sigma_s)
-            tbar[i].setdefault('p', []).append(p_s)
-            tbar[i].setdefault('f', []).append(f)
+            tbar[i]['g_sigma_s'].append(g_sigma_s if p_smoothing else p_sigma_s)
+            tbar[i]['p'].append(p_s)
+            tbar[i]['f'].append(f)
     return tbar
 
 def retrieve_f(f_mat, s):
@@ -246,12 +199,6 @@ def retrieve_f(f_mat, s):
     Returns:
     - f: The frequency count for the sequence s
     """
-    # Convert sequence s to a tuple for indexing
-    idx = tuple(s)
-
-    # Use the length of the sequence to determine which matrix to index into
     if len(s) == 0:
-        return np.sum(f_mat[0])  # Return the total sum of 0th-order frequencies if s is empty
-
-    # For non-empty sequences, use the length of s to retrieve the appropriate matrix and index it
-    return np.squeeze(f_mat[len(s)][idx])  # Access the correct frequency matrix and index by s
+        return np.sum(f_mat[0])
+    return np.squeeze(f_mat[len(s)][tuple(s)])

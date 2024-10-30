@@ -1,0 +1,12 @@
+.DS_Store
+*.pyc
+**.pyc
+*.sqlite3
+venv
+.pydevproject
+.project
+.settings
+frontend/lib
+__pycache__
+
+.venv/
