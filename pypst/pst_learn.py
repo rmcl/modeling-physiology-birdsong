@@ -133,10 +133,8 @@ def fix_path(tbar, max_iterations=1000):
         iteration += 1
         for i in range(2, len(tbar)):
             for j, curr_string in enumerate(tbar[i].get('string', [])):
-                print('CUR STRING:', curr_string)
                 node, depth = find_parent(curr_string, tbar)
 
-                print('PARENT DEP', tbar[i]['parent'])
                 try:
                     parent_depth = tbar[i]['parent'][j][1]
                 except IndexError:

@@ -69,7 +69,6 @@ def test_compare_example_pst():
         [6, 27]
     ], 'Comparing the 2nd node strings did not match.'
 
-    print(generated_tree[2]['parent'])
     assert generated_tree[2]['parent'] == [
         (3, 1), (10, 1), (10, 1), (10, 1), (17, 1), (17, 1), (17, 1), (22, 1), (23, 1)
     ]
