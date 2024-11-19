@@ -120,7 +120,6 @@ def build_transition_matrix(
             indices.append(key)
             values.append(value)
 
-            print(len(shape), len(key))
             assert len(shape) == len(key), "The shape of the key should match the order of the matrix"
 
         indices = torch.tensor(indices, dtype=torch.long)
