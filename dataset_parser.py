@@ -15,7 +15,7 @@ def get_ordered_syllable_for_song(song_syllable_onsets_offsets_ms):
     raw_syllable_tuples = []
     for syllable_label, times in song_syllable_onsets_offsets_ms.items():
         for start, end in times:
-            raw_syllable_tuples.append((syllable_label, start, end))
+            raw_syllable_tuples.append((str(syllable_label), start, end))
 
     sorted_syllable_tuples = sorted(raw_syllable_tuples, key=lambda x: x[1])
     return sorted_syllable_tuples
